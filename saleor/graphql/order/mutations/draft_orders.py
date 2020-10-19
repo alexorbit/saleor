@@ -18,6 +18,8 @@ from ....order.utils import (
     recalculate_order,
     update_order_prices,
 )
+from ....plugins.avatax.plugin import AvataxPlugin
+from ....plugins.manager import get_plugins_manager
 from ....warehouse.management import allocate_stock
 from ...account.i18n import I18nMixin
 from ...account.types import AddressInput
@@ -255,6 +257,18 @@ class DraftOrderComplete(BaseMutation):
             except User.DoesNotExist:
                 order.user = None
 
+    @staticmethod
+    def avalara_active():
+        manager = get_plugins_manager()
+        return next(
+            (
+                True
+                for p in manager.plugins
+                if p.PLUGIN_ID == AvataxPlugin.PLUGIN_ID and p.active
+            ),
+            False,
+        )
+
     @classmethod
     def perform_mutation(cls, _root, info, id):
         order = cls.get_node_or_error(info, id, only_type=Order)
@@ -262,6 +276,20 @@ class DraftOrderComplete(BaseMutation):
         validate_draft_order(order, country)
         cls.update_user_fields(order)
         order.status = OrderStatus.UNFULFILLED
+
+        if (
+            not (order.shipping_address or order.billing_address)
+            and cls.avalara_active()
+        ):
+            raise ValidationError(
+                {
+                    "order": ValidationError(
+                        "There is no shipping or billing adress for this order and "
+                        "Avalara plugin is active.",
+                        code=OrderErrorCode.AVALARA_NO_ADDRESS,
+                    )
+                }
+            )
 
         if not order.is_shipping_required():
             order.shipping_method_name = None

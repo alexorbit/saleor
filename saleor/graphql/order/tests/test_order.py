@@ -1123,6 +1123,25 @@ def test_draft_order_complete(
     assert draft_placed_event.parameters == {}
 
 
+def test_draft_order_complete_avalara_no_adress(
+    staff_api_client, permission_manage_orders, draft_order, setup_avatax
+):
+    order = draft_order
+    order.billing_address = None
+    order.shipping_address = None
+    order.save()
+
+    order_id = graphene.Node.to_global_id("Order", order.id)
+    variables = {"id": order_id}
+    response = staff_api_client.post_graphql(
+        DRAFT_ORDER_COMPLETE_MUTATION, variables, permissions=[permission_manage_orders]
+    )
+    content = get_graphql_content(response)
+    error = content["data"]["draftOrderComplete"]["orderErrors"][0]
+    assert error["field"] == "order"
+    assert error["code"] == OrderErrorCode.AVALARA_NO_ADDRESS.name
+
+
 def test_draft_order_complete_product_without_inventory_tracking(
     staff_api_client,
     permission_manage_orders,

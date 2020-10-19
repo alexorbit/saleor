@@ -53,6 +53,7 @@ from ..page.models import Page, PageTranslation
 from ..payment import ChargeStatus, TransactionKind
 from ..payment.interface import GatewayConfig, PaymentData
 from ..payment.models import Payment
+from ..plugins.avatax.plugin import AvataxPlugin
 from ..plugins.invoicing.plugin import InvoicingPlugin
 from ..plugins.models import PluginConfiguration
 from ..plugins.vatlayer.plugin import VatlayerPlugin
@@ -184,6 +185,16 @@ def setup_vatlayer(settings):
         "configuration": [{"name": "Access key", "value": "vatlayer_access_key"},],
     }
     PluginConfiguration.objects.create(identifier=VatlayerPlugin.PLUGIN_ID, **data)
+    return settings
+
+
+@pytest.fixture
+def setup_avatax(settings):
+    settings.PLUGINS = ["saleor.plugins.avatax.plugin.AvataxPlugin"]
+    data = {
+        "active": True,
+    }
+    PluginConfiguration.objects.create(identifier=AvataxPlugin.PLUGIN_ID, **data)
     return settings
 
 
